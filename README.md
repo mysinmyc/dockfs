@@ -1,6 +1,6 @@
 # dockfs
 
-A fuse userspace filesytem to interact with docker
+A fuse userspace filesystem to interact with docker
 
 
 
