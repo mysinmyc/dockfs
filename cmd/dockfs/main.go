@@ -32,7 +32,7 @@ func main() {
                 fuse.FSName("dockfs"),
                 fuse.ReadOnly(),
                 fuse.LocalVolume())
-	diagnostic.LogFatalIfError(vMountError,"main","An error occurred while mounting onedrive filesystem")
+	diagnostic.LogFatalIfError(vMountError,"main","An error occurred while mounting dockfs filesystem")
        
         defer vFileSystemConnection.Close()
 
