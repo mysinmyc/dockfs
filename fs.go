@@ -36,8 +36,15 @@ func (vSelf *DockFs) Root() (fs.Node, error) {
 
 	vImagesById, vImagesByIdError:=image.NewImagesByIdNode(vSelf.dockerClient)
 	if vImagesByIdError != nil {
-		return nil,diagnostic.NewError("Failed to create ImagesById node",vContainersByIdError)
+		return nil,diagnostic.NewError("Failed to create ImagesById node",vImagesByIdError)
 	}
 	vRoot.Add("images/byId",vImagesById)
+
+	vImagesByTag, vImagesByTagError:=image.NewImagesByTagNode(vSelf.dockerClient)
+	if vImagesByTagError != nil {
+		return nil,diagnostic.NewError("Failed to create ImagesByTag node",vImagesByTagError)
+	}
+	vRoot.Add("images/byTag",vImagesByTag)
+	
 	return vRoot, nil
 }

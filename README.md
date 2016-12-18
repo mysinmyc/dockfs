@@ -48,8 +48,10 @@ $GOPATH/bin/dockfs -mountPoint $HOME/dockfs &
     * byId
       * {image id}
         * json:	informations coming from the docker api
-        * parent: if present, symbolink link to the image parent
-
+        * parent: if present, symbolic link to the image parent
+    * byTag
+      * {repository} or {source/repository}
+        * {tag}: symlink to theimage 
 
 	
 # External dependencies
