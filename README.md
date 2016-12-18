@@ -41,17 +41,20 @@ $GOPATH/bin/dockfs -mountPoint $HOME/dockfs &
         * name:	contaner name
         * command: command
         * image: symbolic link to the image
+    * byState
+      * {state}
+        * {container id}: symlink to container in the state described by the parent node
   * images: images
-    * by id
+    * byId
       * {image id}
         * json:	informations coming from the docker api
         * parent: if present, symbolink link to the image parent
 
 
 	
-# Extenal dependencies
+# External dependencies
 
-this project depends directly on
+This project depends directly on the following projects, I thanks to the authors
 
 * [bazil.org/fuse](https://github.com/bazil/fuse)
 
