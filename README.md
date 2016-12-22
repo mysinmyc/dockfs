@@ -53,8 +53,8 @@ $GOPATH/bin/dockfs -mountPoint $HOME/dockfs &
       * {image id}
         * json:	informations coming from the docker api
         * parent: if present, symbolic link to the image parent
-	* containers
-	  * {container id}: symlink to container started from the image
+        * containers
+          * {container id}: symlink to container started from the image
     * byTag
       * {repository} or {source/repository}
         * {tag}: symlink to theimage 
