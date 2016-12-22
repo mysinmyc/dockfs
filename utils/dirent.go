@@ -8,3 +8,7 @@ import  (
 type DirentTyped interface {
 	GetDirentType() fuse.DirentType
 }
+
+type DirentParent interface {
+	Add(string, DirentTyped) error
+}

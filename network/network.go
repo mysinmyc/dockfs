@@ -1,4 +1,4 @@
-package image
+package network
 
 
 import  (
@@ -9,21 +9,21 @@ import  (
 	"bazil.org/fuse/fs"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
-	"github.com/mysinmyc/dockfs/container"
 	"github.com/mysinmyc/dockfs/utils"
+	"github.com/mysinmyc/dockfs/container"
 	"github.com/mysinmyc/gocommons/diagnostic"
 )
 
 
-type ImageNode struct {
+type NetworkNode struct {
 	dockerClient  *client.Client
-	image     types.ImageSummary
+	network     types.NetworkResource	
 	children      map[string] utils.DirentTyped
 }
 
 
-func NewImageNode(pDockerClient *client.Client, pImage types.ImageSummary) (*ImageNode, error) {
-	vRis:= &ImageNode {dockerClient: pDockerClient, image: pImage}
+func NewNetworkNode(pDockerClient *client.Client, pNetwork types.NetworkResource) (*NetworkNode, error) {
+	vRis:= &NetworkNode {dockerClient: pDockerClient, network: pNetwork}
         vInitError:=vRis.init(context.Background())
 
         if vInitError != nil {
@@ -34,12 +34,12 @@ func NewImageNode(pDockerClient *client.Client, pImage types.ImageSummary) (*Ima
 	return vRis,nil
 }
 
-func (vSelf *ImageNode) Attr(pContext context.Context, pAttr *fuse.Attr) error {
+func (vSelf *NetworkNode) Attr(pContext context.Context, pAttr *fuse.Attr) error {
 	pAttr.Mode = os.ModeDir | 0555
 	return nil
 }
 
-func (vSelf *ImageNode) Lookup(pContext context.Context, pName string) (fs.Node, error) {
+func (vSelf *NetworkNode) Lookup(pContext context.Context, pName string) (fs.Node, error) {
         vRis:=vSelf.children[pName]
 
         if vRis != nil {
@@ -48,7 +48,7 @@ func (vSelf *ImageNode) Lookup(pContext context.Context, pName string) (fs.Node,
         return nil, fuse.ENOENT
 }
 
-func (vSelf *ImageNode) ReadDirAll(pContext context.Context) ([]fuse.Dirent, error) {
+func (vSelf *NetworkNode) ReadDirAll(pContext context.Context) ([]fuse.Dirent, error) {
         vRis:= make([]fuse.Dirent,0)
         for vCurChildName, vCurChild := range vSelf.children {
                 vRis=append(vRis, fuse.Dirent{ Type: vCurChild.GetDirentType(), Name:vCurChildName})   
@@ -56,24 +56,26 @@ func (vSelf *ImageNode) ReadDirAll(pContext context.Context) ([]fuse.Dirent, err
         return vRis,nil
 }
 
-func (vSelf *ImageNode) init(pContext context.Context) (error) {
+func (vSelf *NetworkNode) init(pContext context.Context) (error) {
 
         vChildren:= make(map[string]utils.DirentTyped)
+	vChildren["name"],_ = utils.NewDynamicFileNode(vSelf.nameFunc)
 	vChildren["json"],_ = utils.NewDynamicFileNode(vSelf.jsonFunc)
-	if vSelf.image.ParentID != "" {
-		vChildren["parent"],_ = utils.NewSymLinkNode("../"+vSelf.image.ParentID)
-	}
-	vChildren["containers"],_ = container.NewContainersOfImageNode(vSelf.image.ID, vSelf.dockerClient)
+	vChildren["containers"],_ = container.NewContainersOfNetworkNode(vSelf.network.ID,vSelf.dockerClient)
         vSelf.children = vChildren
         return nil
 }
 
-func (vSelf *ImageNode) GetDirentType() fuse.DirentType {
+
+func (vSelf *NetworkNode) GetDirentType() (fuse.DirentType) {
 	return fuse.DT_Dir
 }
 
+func (vSelf *NetworkNode) nameFunc() ([]byte,error) {
+	return []byte(vSelf.network.Name), nil
+}
 
-func (vSelf *ImageNode) jsonFunc() ([]byte,error) {
-		return json.Marshal(vSelf.image)
+func (vSelf *NetworkNode) jsonFunc() ([]byte,error) {
+	return json.Marshal(vSelf.network)
 }
 

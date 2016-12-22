@@ -50,9 +50,12 @@ func umount(pMountPoint string) {
 
 func main() {
 
+	vLogLevelParameter := flag.Int("logLevel", diagnostic.LogLevel_Info, "Log level")
 	vMountPointParameter := flag.String("mountPoint", "", "Target mountpoint")
 	vActionParameter := flag.String("action", "mount", "action [mount|umount]")
 	flag.Parse()
+
+	diagnostic.SetLogLevel(diagnostic.LogLevel(*vLogLevelParameter))
 
 	if *vMountPointParameter == "" {
 		diagnostic.LogFatal("main","missing mountPoint parameter",nil)

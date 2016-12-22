@@ -41,18 +41,30 @@ $GOPATH/bin/dockfs -mountPoint $HOME/dockfs &
         * name:	contaner name
         * command: command
         * image: symbolic link to the image
+        * stdout: container standard output
+        * stderr: container standard error
     * byState
       * {state}
         * {container id}: symlink to container in the state described by the parent node
+    * byName
+      * {container name}: symlink to the container
   * images: images
     * byId
       * {image id}
         * json:	informations coming from the docker api
         * parent: if present, symbolic link to the image parent
+	* containers
+	  * {container id}: symlink to container started from the image
     * byTag
       * {repository} or {source/repository}
         * {tag}: symlink to theimage 
-
+  * networks: docker networks
+    * byId
+      * {network id}
+        * json: informations coming from the docker api
+        * name: network name
+        * containers: 
+          * {container id}: symlink to container connected to the docker network
 	
 # External dependencies
 
