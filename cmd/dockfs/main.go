@@ -2,6 +2,7 @@ package main
 
 import(
 	"flag"
+	//"golang.org/x/net/context"
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/docker/docker/client"
@@ -10,14 +11,25 @@ import(
 )
 
 
-func mount(pMountPoint string) {
+func buildClient() (*client.Client,error) {
+	diagnostic.LogInfo("buildClient", "Creating docker client...")
+	return client.NewEnvClient() 
+}
 
-	diagnostic.LogInfo("mount", "Creating docker client...")
-	vClient, vClientError := client.NewEnvClient() 
-	diagnostic.LogFatalIfError(vClientError,"mount","Failed to create client")
+func negotiateApiVersion(pClient *client.Client) error {
+
+		//vPing,vPingError := pClient.Ping(context.Background())
+		//diagnostic.LogFatalIfError(vPingError,"negotiateApiVersion", "An error occurred while asking server version")
+		//pClient.UpdateClientVersion(vPing.APIVersion)
+		pClient.UpdateClientVersion("") //Blank means no api check
+		return nil
+}
+
+func mount(pMountPoint string, pClient *client.Client) {
+
 	 
 	diagnostic.LogInfo("mount", "Creating filesystem...")
-	vFs,vFsError:= dockfs.NewDockFs(vClient)	
+	vFs,vFsError:= dockfs.NewDockFs(pClient)	
 	diagnostic.LogFatalIfError(vFsError,"mount","Failed to create filesystem")
 		
 	diagnostic.LogInfo("mount", "Mounting filesystem on %s...", pMountPoint)
@@ -37,7 +49,6 @@ func mount(pMountPoint string) {
         <-vFileSystemConnection.Ready
         if vFileSystemConnection.MountError != nil {
                 diagnostic.LogFatal("mount", "Mount failed", vFileSystemConnection.MountError)
-
         }
 
 }
@@ -50,6 +61,7 @@ func umount(pMountPoint string) {
 
 func main() {
 
+	vAutoApiVersion := flag.Bool("autoApiVersion", true, "Automatic api version configuration")
 	vLogLevelParameter := flag.Int("logLevel", diagnostic.LogLevel_Info, "Log level")
 	vMountPointParameter := flag.String("mountPoint", "", "Target mountpoint")
 	vActionParameter := flag.String("action", "mount", "action [mount|umount]")
@@ -62,9 +74,19 @@ func main() {
 	}
 
 
+
 	switch *vActionParameter {
 		case "mount":
-			mount(*vMountPointParameter)
+			vClient,vClientError:= buildClient()	
+			
+			diagnostic.LogFatalIfError(vClientError,"main", "An error occurred while creating docker client")
+
+			if *vAutoApiVersion {
+				vNegotiateApiError:= negotiateApiVersion(vClient)
+				diagnostic.LogFatalIfError(vNegotiateApiError, "main", "Failed to negotiate the api version")
+			}
+
+			mount(*vMountPointParameter,vClient)
 			break
 		case "umount":
 			umount(*vMountPointParameter)

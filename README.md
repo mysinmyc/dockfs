@@ -76,12 +76,3 @@ This project depends directly on the following projects, I thanks to the authors
 
 Before using it please check license compatibility for your use cases
 
-
-
-## Known issues
-
-It can happens that docker api version pulled from github is newer than the version of the local docker engine. If it happens, download the right version or try with the following environment variable if the two releases are compatible
-
-```
-export DOCKER_API_VERSION={expected version}
-```
