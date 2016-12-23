@@ -11,6 +11,7 @@ import  (
 	"bazil.org/fuse/fs"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/mysinmyc/dockfs/utils"
 	"github.com/mysinmyc/gocommons/diagnostic"
 )
@@ -18,24 +19,31 @@ import  (
 
 type ContainerNode struct {
 	dockerClient  *client.Client
-	container     types.Container	
+	containerId   string
+	container     *types.Container 
 	children      map[string] utils.DirentTyped
 }
 
 
-func NewContainerNode(pDockerClient *client.Client, pContainer types.Container) (*ContainerNode, error) {
-	vRis:= &ContainerNode {dockerClient: pDockerClient, container: pContainer}
-        vInitError:=vRis.init(context.Background())
+func NewContainerNode(pDockerClient *client.Client, pContainerId string) (*ContainerNode, error) {
+	vRis:= &ContainerNode {dockerClient: pDockerClient, containerId: pContainerId}
+        vInitError:=vRis.init()
 
         if vInitError != nil {
                 return nil,diagnostic.NewError("initialization failed",vInitError)
         }
-
 	
 	return vRis,nil
 }
 
 func (vSelf *ContainerNode) Attr(pContext context.Context, pAttr *fuse.Attr) error {
+	/*vContainer,vContainerError:=vSelf.getContainer(true)
+	if vContainerError != nil {
+		return diagnostic.NewError("failed to get container",vContainerError)
+	}
+	pAttr.Mtime = time.Unix(vContainer.Created,0)
+	*/
+
 	pAttr.Mode = os.ModeDir | 0555
 	return nil
 }
@@ -57,39 +65,80 @@ func (vSelf *ContainerNode) ReadDirAll(pContext context.Context) ([]fuse.Dirent,
         return vRis,nil
 }
 
-func (vSelf *ContainerNode) init(pContext context.Context) (error) {
+func (vSelf *ContainerNode) init() (error) {
 
         vChildren:= make(map[string]utils.DirentTyped)
+	//vChildren["."] = vSelf
 	vChildren["name"],_ = utils.NewDynamicFileNode(vSelf.nameFunc)
 	vChildren["json"],_ = utils.NewDynamicFileNode(vSelf.jsonFunc)
 	vChildren["state"],_ = utils.NewDynamicFileNode(vSelf.stateFunc)
 	vChildren["stdout"],_ = utils.NewDynamicFileNode(vSelf.stdOutFunc)
 	vChildren["stderr"],_ = utils.NewDynamicFileNode(vSelf.stdErrFunc)
 	vChildren["command"],_ = utils.NewDynamicFileNode(vSelf.commandFunc)
-	vChildren["image"],_ = utils.NewSymLinkNode("../../../images/byId/"+vSelf.container.ImageID)
+
+	vContainer,vContainerError:=vSelf.getContainer(true)
+	if vContainerError != nil {
+		return diagnostic.NewError("failed to get container", vContainerError)
+	}
+
+	vChildren["image"],_ = utils.NewSymLinkNode("../../../images/byId/"+vContainer.ImageID)
         vSelf.children = vChildren
         return nil
 }
 
+func (vSelf *ContainerNode) getContainer(pCached bool) (*types.Container,error) {
+
+	vFilters:=filters.NewArgs()
+        vFilters.Add("id", vSelf.containerId)
+
+	if pCached == false || vSelf.container == nil {
+		vContainers,vContainersError:= vSelf.dockerClient.ContainerList(context.Background(),types.ContainerListOptions{Filters:vFilters,All:true} )
+		if vContainersError!=nil {
+			return nil,vContainersError
+		}	
+		if len(vContainers) != 1 {
+			return nil, diagnostic.NewError("Invalid number of containers with id %s found: %d", nil, vSelf.containerId, len(vContainers))
+		}
+		vSelf.container = &vContainers[0]
+	}
+
+	return vSelf.container,nil
+}
 
 func (vSelf *ContainerNode) GetDirentType() (fuse.DirentType) {
 	return fuse.DT_Dir
 }
 
 func (vSelf *ContainerNode) nameFunc() ([]byte,error) {
-	return []byte(strings.Join(vSelf.container.Names,"/")), nil
+	vContainer,vContainerError:=vSelf.getContainer(true)
+	if vContainerError != nil {
+		return nil,diagnostic.NewError("failed to get container", vContainerError)
+	}
+	return []byte(strings.Join(vContainer.Names,"/")), nil
 }
 
 func (vSelf *ContainerNode) jsonFunc() ([]byte,error) {
-	return json.Marshal(vSelf.container)
+	vContainer,vContainerError:=vSelf.getContainer(false)
+	if vContainerError != nil {
+		return nil,diagnostic.NewError("failed to get container", vContainerError)
+	}
+	return json.Marshal(vContainer)
 }
 
 func (vSelf *ContainerNode) stateFunc() ([]byte,error) {
-	return []byte(vSelf.container.State), nil
+	vContainer,vContainerError:=vSelf.getContainer(false)
+	if vContainerError != nil {
+		return nil,diagnostic.NewError("failed to get container", vContainerError)
+	}
+	return []byte(vContainer.State), nil
 }
 
 func (vSelf *ContainerNode) commandFunc() ([]byte,error) {
-	return []byte(vSelf.container.Command), nil
+	vContainer,vContainerError:=vSelf.getContainer(true)
+	if vContainerError != nil {
+		return nil,diagnostic.NewError("failed to get container", vContainerError)
+	}
+	return []byte(vContainer.Command), nil
 }
 
 func (vSelf *ContainerNode) stdOutFunc() ([]byte,error) {
@@ -101,7 +150,7 @@ func (vSelf *ContainerNode) stdErrFunc() ([]byte,error) {
 }
 
 func (vSelf *ContainerNode) getContainerLogs(pOptions types.ContainerLogsOptions) ([]byte,error) {
-	vLogsReader, vLogsError :=vSelf.dockerClient.ContainerLogs(context.Background(), vSelf.container.ID, pOptions)
+	vLogsReader, vLogsError :=vSelf.dockerClient.ContainerLogs(context.Background(), vSelf.containerId, pOptions)
 
 	if vLogsError != nil {
 		return nil,diagnostic.NewError("Error getting container logs",vLogsError)

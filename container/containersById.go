@@ -34,7 +34,7 @@ func (vSelf *ContainersByIdNode) populateChildren() (map[string] utils.DirentTyp
 
 	vRis:= make(map[string]utils.DirentTyped,len(vContainers))
 	for _,vCurContainer := range vContainers {
-		vCurContainerNode,vCurContainerNodeError:=NewContainerNode(vSelf.dockerClient,vCurContainer)
+		vCurContainerNode,vCurContainerNodeError:=NewContainerNode(vSelf.dockerClient,vCurContainer.ID)
 		if vCurContainerNodeError!= nil {
 			return nil,diagnostic.NewError("Failed to create container Node for container %#v", vCurContainerNodeError, vCurContainer)
 		}
