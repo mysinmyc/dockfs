@@ -21,6 +21,7 @@ type ContainerNode struct {
 	dockerClient  *client.Client
 	containerId   string
 	container     *types.Container 
+	containerJSON *types.ContainerJSON
 	children      map[string] utils.DirentTyped
 }
 
@@ -71,10 +72,12 @@ func (vSelf *ContainerNode) init() (error) {
 	//vChildren["."] = vSelf
 	vChildren["name"],_ = utils.NewDynamicFileNode(vSelf.nameFunc)
 	vChildren["json"],_ = utils.NewDynamicFileNode(vSelf.jsonFunc)
+	vChildren["json_full"],_ = utils.NewDynamicFileNode(vSelf.inspectFunc)
 	vChildren["state"],_ = utils.NewDynamicFileNode(vSelf.stateFunc)
 	vChildren["stdout"],_ = utils.NewDynamicFileNode(vSelf.stdOutFunc)
 	vChildren["stderr"],_ = utils.NewDynamicFileNode(vSelf.stdErrFunc)
 	vChildren["command"],_ = utils.NewDynamicFileNode(vSelf.commandFunc)
+	vChildren["networks"],_ = NewNetworksOfContainerNode(vSelf.containerId, vSelf.dockerClient)
 
 	vContainer,vContainerError:=vSelf.getContainer(true)
 	if vContainerError != nil {
@@ -88,10 +91,9 @@ func (vSelf *ContainerNode) init() (error) {
 
 func (vSelf *ContainerNode) getContainer(pCached bool) (*types.Container,error) {
 
-	vFilters:=filters.NewArgs()
-        vFilters.Add("id", vSelf.containerId)
-
 	if pCached == false || vSelf.container == nil {
+		vFilters:=filters.NewArgs()
+        	vFilters.Add("id", vSelf.containerId)
 		vContainers,vContainersError:= vSelf.dockerClient.ContainerList(context.Background(),types.ContainerListOptions{Filters:vFilters,All:true} )
 		if vContainersError!=nil {
 			return nil,vContainersError
@@ -103,6 +105,18 @@ func (vSelf *ContainerNode) getContainer(pCached bool) (*types.Container,error) 
 	}
 
 	return vSelf.container,nil
+}
+
+func (vSelf *ContainerNode) inspect(pCached bool) (*types.ContainerJSON,error) {
+	if pCached == false || vSelf.containerJSON == nil {
+		vContainerJSON,vContainersError:= vSelf.dockerClient.ContainerInspect(context.Background(),vSelf.containerId)
+		if vContainersError!=nil {
+			return nil,vContainersError
+		}	
+		vSelf.containerJSON = &vContainerJSON
+	}
+
+	return vSelf.containerJSON,nil
 }
 
 func (vSelf *ContainerNode) GetDirentType() (fuse.DirentType) {
@@ -123,6 +137,14 @@ func (vSelf *ContainerNode) jsonFunc() ([]byte,error) {
 		return nil,diagnostic.NewError("failed to get container", vContainerError)
 	}
 	return json.Marshal(vContainer)
+}
+
+func (vSelf *ContainerNode) inspectFunc() ([]byte,error) {
+	vContainerJSON,vContainerError:=vSelf.inspect(false)
+	if vContainerError != nil {
+		return nil,diagnostic.NewError("failed to inspect container", vContainerError)
+	}
+	return json.Marshal(vContainerJSON)
 }
 
 func (vSelf *ContainerNode) stateFunc() ([]byte,error) {
