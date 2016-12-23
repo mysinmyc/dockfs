@@ -31,7 +31,7 @@ func (vSelf *ContainersOfImageNode) populateChildren() (map[string] utils.Dirent
 
 	vFilters:=filters.NewArgs()
 	vFilters.Add("ancestor", vSelf.imageId)
-	vContainers,vError:=vSelf.dockerClient.ContainerList(context.Background(),types.ContainerListOptions{Filters:vFilters, Limit:-1})
+	vContainers,vError:=vSelf.dockerClient.ContainerList(context.Background(),types.ContainerListOptions{All:true, Filters:vFilters, Limit:-1})
 	if vError!=nil {
 		return nil, diagnostic.NewError("failed to list containers",vError)
 	}
