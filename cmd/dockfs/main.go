@@ -25,7 +25,7 @@ func negotiateApiVersion(pClient *client.Client) error {
 		return nil
 }
 
-func mount(pMountPoint string, pClient *client.Client) {
+func mount(pMountPoint string, pClient *client.Client, pAllowOther bool) {
 
 	 
 	diagnostic.LogInfo("mount", "Creating filesystem...")
@@ -33,11 +33,17 @@ func mount(pMountPoint string, pClient *client.Client) {
 	diagnostic.LogFatalIfError(vFsError,"mount","Failed to create filesystem")
 		
 	diagnostic.LogInfo("mount", "Mounting filesystem on %s...", pMountPoint)
-        vFileSystemConnection, vMountError := fuse.Mount(
-                pMountPoint,
-                fuse.FSName("dockfs"),
+
+	vMountOptions := make([]fuse.MountOption,0)
+	vMountOptions=append(vMountOptions,fuse.FSName("dockfs"),
                 fuse.ReadOnly(),
                 fuse.LocalVolume())
+	if (pAllowOther) {
+		vMountOptions=append(vMountOptions,fuse.AllowOther())
+	}
+        vFileSystemConnection, vMountError := fuse.Mount(
+                pMountPoint,
+                vMountOptions...)
 	diagnostic.LogFatalIfError(vMountError,"mount","An error occurred while mounting dockfs filesystem")
        
         defer vFileSystemConnection.Close()
@@ -61,7 +67,8 @@ func umount(pMountPoint string) {
 
 func main() {
 
-	vAutoApiVersion := flag.Bool("autoApiVersion", true, "Automatic api version configuration")
+	vAllowOtherParameter := flag.Bool("allowOther", false, "Allow Other")
+	vAutoApiVersionParameter := flag.Bool("autoApiVersion", true, "Automatic api version configuration")
 	vLogLevelParameter := flag.Int("logLevel", diagnostic.LogLevel_Info, "Log level")
 	vMountPointParameter := flag.String("mountPoint", "", "Target mountpoint")
 	vActionParameter := flag.String("action", "mount", "action [mount|umount]")
@@ -81,12 +88,12 @@ func main() {
 			
 			diagnostic.LogFatalIfError(vClientError,"main", "An error occurred while creating docker client")
 
-			if *vAutoApiVersion {
+			if *vAutoApiVersionParameter {
 				vNegotiateApiError:= negotiateApiVersion(vClient)
 				diagnostic.LogFatalIfError(vNegotiateApiError, "main", "Failed to negotiate the api version")
 			}
 
-			mount(*vMountPointParameter,vClient)
+			mount(*vMountPointParameter,vClient,*vAllowOtherParameter)
 			break
 		case "umount":
 			umount(*vMountPointParameter)
